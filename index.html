@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Open HTML</title>
-<meta name="description" content="Paste HTML code, save it as a file, and open it as a site. Installable as an app.">
+<meta name="description" content="Paste HTML code, preview it, save it as a file, and open it as a site. Installable as an app.">
 <link rel="canonical" href="https://yanai-lez.github.io/Open-HTML/">
 
 <!-- App / install -->
@@ -27,7 +27,7 @@
 <meta property="og:site_name" content="Open HTML">
 <meta property="og:locale" content="en_US">
 <meta property="og:title" content="Open HTML">
-<meta property="og:description" content="Paste HTML code, save it as a file, and open it as a site.">
+<meta property="og:description" content="Paste HTML code, preview it, save it as a file, and open it as a site.">
 <meta property="og:url" content="https://yanai-lez.github.io/Open-HTML/">
 <meta property="og:image" content="https://yanai-lez.github.io/Open-HTML/icons/og-image.jpg">
 <meta property="og:image:type" content="image/jpeg">
@@ -36,75 +36,264 @@
 <meta property="og:image:alt" content="Open HTML">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Open HTML">
-<meta name="twitter:description" content="Paste HTML code, save it as a file, and open it as a site.">
+<meta name="twitter:description" content="Paste HTML code, preview it, save it as a file, and open it as a site.">
 <meta name="twitter:image" content="https://yanai-lez.github.io/Open-HTML/icons/og-image.jpg">
 
 <style>
+  :root {
+    --bg: #0f1115; --panel: #1a1d24; --line: #333; --text: #eee;
+    --muted: #9db4d6; --blue: #3b82f6; --blue-dark: #2563eb;
+  }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body {
     margin: 0;
-    padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+    padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
     font-family: system-ui, sans-serif;
-    background: #0f1115; color: #eee;
+    background: var(--bg); color: var(--text);
     display: flex; flex-direction: column;
-    height: 100vh; height: 100dvh; gap: 12px;
+    height: 100vh; height: 100dvh; gap: 10px;
   }
+  button { font: inherit; cursor: pointer; border: 0; border-radius: 10px; color: var(--text); }
+
   header { display: flex; align-items: center; gap: 12px; }
-  header img { width: 40px; height: 40px; border-radius: 10px; }
-  h1 { margin: 0; font-size: 1.3rem; flex: 1; }
-  textarea {
-    flex: 1; width: 100%; padding: 12px;
-    background: #1a1d24; color: #eee;
-    border: 1px solid #333; border-radius: 10px;
-    font-family: monospace; font-size: 14px;
-    resize: none;
+  header img { width: 36px; height: 36px; border-radius: 9px; }
+  h1 { margin: 0; font-size: 1.2rem; flex: 1; }
+
+  .btn {
+    padding: 10px 12px; font-size: .95rem; font-weight: 600;
+    background: var(--panel); border: 1px solid var(--line);
   }
-  button {
-    padding: 14px; font-size: 1.1rem; font-weight: 600;
-    border: 0; border-radius: 10px;
-    background: #3b82f6; color: #fff; cursor: pointer;
-  }
-  button:active { background: #2563eb; }
+  .btn:active { background: #252a35; }
+  .primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .primary:active { background: var(--blue-dark); }
   #install {
-    display: none; padding: 8px 14px; font-size: .95rem;
-    background: transparent; border: 1px solid #3b82f6; color: #8ab4ff;
+    display: none; padding: 8px 14px; font-size: .9rem;
+    background: transparent; border: 1px solid var(--blue); color: #8ab4ff;
   }
+
+  .toolbar { display: flex; gap: 8px; }
+  .toolbar .btn { flex: 1; padding: 9px 6px; font-size: .9rem; }
+
+  .tabs {
+    display: flex; gap: 3px; padding: 3px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  }
+  .tab { flex: 1; padding: 8px; background: transparent; color: var(--muted); font-weight: 600; border-radius: 8px; }
+  .tab[aria-selected="true"] { background: var(--blue); color: #fff; }
+
+  .stage { flex: 1; min-height: 0; position: relative; }
+  .stage textarea, .stage iframe {
+    position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 10px;
+  }
+  textarea {
+    padding: 12px; resize: none; tab-size: 2;
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 14px; line-height: 1.45;
+  }
+  iframe { border: 1px solid var(--line); background: #fff; }
+  .stage[data-view="preview"] textarea { display: none; }
+
+  .actions { display: flex; gap: 8px; }
+  .actions .btn { flex: 1; padding: 14px 8px; font-size: 1rem; }
+  .actions .primary { flex: 2; font-size: 1.05rem; }
+
   .note {
-    display: none; margin: 0; padding: 10px 12px; font-size: .9rem;
-    background: #1a1d24; border: 1px solid #333; border-radius: 10px; color: #9db4d6;
+    margin: 0; padding: 10px 12px; font-size: .9rem;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px; color: var(--muted);
   }
+
+  #toast {
+    position: fixed; left: 12px; right: 12px; z-index: 10;
+    bottom: calc(84px + env(safe-area-inset-bottom));
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 12px 14px; font-size: .95rem;
+    background: #252a35; border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, .4);
+  }
+  #toast button { background: none; color: #8ab4ff; font-weight: 700; padding: 4px 8px; }
+
+  dialog {
+    width: min(92vw, 480px); padding: 0;
+    background: var(--panel); color: var(--text);
+    border: 1px solid var(--line); border-radius: 14px;
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, .6); }
+  .dlg-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--line);
+  }
+  .dlg-head h2 { margin: 0; font-size: 1.1rem; }
+  #lib-list { list-style: none; margin: 0; padding: 6px 8px; max-height: 60vh; overflow: auto; }
+  #lib-list li { display: flex; align-items: center; gap: 8px; padding: 10px 6px; border-bottom: 1px solid #262a33; }
+  #lib-list li:last-child { border-bottom: 0; }
+  .lib-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .lib-info strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lib-info small { color: var(--muted); }
+  .lib-btn { padding: 8px 12px; font-size: .9rem; }
+  #lib-empty { margin: 0; padding: 20px 16px; color: var(--muted); }
 </style>
 </head>
 <body>
   <header>
-    <img src="icons/icon-96.png" alt="" width="40" height="40">
+    <img src="icons/icon-96.png" alt="" width="36" height="36">
     <h1>Open HTML</h1>
     <button id="install" type="button">Install app</button>
   </header>
-  <p id="ios-hint" class="note">To install on iPhone: tap the Share button, then "Add to Home Screen".</p>
-  <p id="shared-note" class="note"></p>
-  <textarea id="code" placeholder="Paste your HTML code here..." spellcheck="false"></textarea>
-  <button id="save" type="button">Save file</button>
+
+  <p id="ios-hint" class="note" hidden>To install on iPhone: tap the Share button, then "Add to Home Screen".</p>
+
+  <div class="toolbar">
+    <button id="paste" class="btn" type="button">Paste</button>
+    <button id="open-file" class="btn" type="button">Open file</button>
+    <button id="clear" class="btn" type="button">Clear</button>
+    <button id="library" class="btn" type="button">Library</button>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button id="tab-code" class="tab" type="button" role="tab" aria-selected="true">Code</button>
+    <button id="tab-preview" class="tab" type="button" role="tab" aria-selected="false">Preview</button>
+  </div>
+
+  <div id="stage" class="stage" data-view="code">
+    <textarea id="code" placeholder="Paste your HTML code here..."
+      spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+  </div>
+
+  <div class="actions">
+    <button id="save" class="btn primary" type="button">Save file</button>
+    <button id="open-now" class="btn" type="button">Open now</button>
+    <button id="share" class="btn" type="button">Share</button>
+  </div>
+
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+
+  <input id="file" type="file" accept=".html,.htm,text/html" hidden>
+
+  <dialog id="lib-dialog">
+    <div class="dlg-head">
+      <h2>Library</h2>
+      <button id="lib-close" class="btn lib-btn" type="button">Close</button>
+    </div>
+    <p id="lib-empty">Nothing here yet. Every page you save as a file is kept here too.</p>
+    <ul id="lib-list"></ul>
+  </dialog>
 
 <script>
-  var codeBox = document.getElementById('code');
-  var defaultName = 'my-site';
+(function () {
+  'use strict';
 
-  // ---- Save as a file ----
-  document.getElementById('save').addEventListener('click', function () {
-    var code = codeBox.value;
-    if (!code.trim()) {
-      alert('The text box is empty.');
-      return;
+  var $ = function (id) { return document.getElementById(id); };
+  var codeBox = $('code');
+  var stage = $('stage');
+  var DRAFT_KEY = 'open-html-draft';
+  var LIB_KEY = 'open-html-library';
+  var EMPTY_PREVIEW = '<body style="margin:0;height:100vh;display:grid;place-items:center;' +
+    'font-family:system-ui,sans-serif;color:#777">Nothing to preview yet</body>';
+  var currentName = 'my-site';
+
+  // ---------- Storage (guarded: it can be blocked or full) ----------
+  function load(key, fallback) {
+    try {
+      var raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (e) { return fallback; }
+  }
+  function store(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+    catch (e) { return false; }
+  }
+
+  // ---------- Toast (with optional action, e.g. Undo) ----------
+  var toastEl = $('toast');
+  var toastTimer;
+  function hideToast() { toastEl.hidden = true; }
+  function toast(message, actionLabel, action) {
+    clearTimeout(toastTimer);
+    toastEl.textContent = '';
+    var span = document.createElement('span');
+    span.textContent = message;
+    toastEl.appendChild(span);
+    if (actionLabel) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = actionLabel;
+      b.addEventListener('click', function () { hideToast(); action(); });
+      toastEl.appendChild(b);
     }
+    toastEl.hidden = false;
+    toastTimer = setTimeout(hideToast, actionLabel ? 6000 : 3500);
+  }
 
-    var name = prompt('What should the file be called?', defaultName);
-    if (name === null) return;
+  // ---------- Draft: autosave and restore ----------
+  var draftTimer;
+  function saveDraft() { store(DRAFT_KEY, { code: codeBox.value, name: currentName }); }
+  codeBox.addEventListener('input', function () {
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(saveDraft, 400);
+  });
+  window.addEventListener('pagehide', saveDraft);
+  document.addEventListener('visibilitychange', function () { if (document.hidden) saveDraft(); });
 
-    name = name.trim().replace(/[\\/:*?"<>|]/g, '-');
+  var draft = load(DRAFT_KEY, null);
+  if (draft && typeof draft.code === 'string') {
+    codeBox.value = draft.code;
+    if (draft.name) currentName = draft.name;
+  }
+
+  // Replace the text box content, with an Undo for the previous content.
+  function setCode(text, name, message) {
+    var previous = codeBox.value;
+    var previousName = currentName;
+    codeBox.value = text;
+    if (name) currentName = name;
+    saveDraft();
+    showView('code');
+    if (previous.trim() && previous !== text) {
+      toast(message, 'Undo', function () {
+        codeBox.value = previous;
+        currentName = previousName;
+        saveDraft();
+      });
+    } else {
+      toast(message);
+    }
+  }
+
+  // ---------- Code / Preview tabs ----------
+  function showView(view) {
+    stage.dataset.view = view;
+    $('tab-code').setAttribute('aria-selected', String(view === 'code'));
+    $('tab-preview').setAttribute('aria-selected', String(view === 'preview'));
+
+    // A fresh frame every time: it stops any scripts from the previous preview,
+    // and avoids a Chrome quirk where a reused frame can render at zero size.
+    var old = stage.querySelector('iframe');
+    if (old) old.remove();
+    if (view === 'preview') {
+      var f = document.createElement('iframe');
+      f.id = 'preview';
+      f.title = 'Preview';
+      // No allow-same-origin: the preview cannot touch this app's storage.
+      f.setAttribute('sandbox', 'allow-scripts allow-forms allow-modals allow-popups allow-downloads');
+      f.srcdoc = codeBox.value.trim() ? codeBox.value : EMPTY_PREVIEW;
+      stage.appendChild(f);
+    }
+  }
+  $('tab-code').addEventListener('click', function () { showView('code'); });
+  $('tab-preview').addEventListener('click', function () { showView('preview'); });
+
+  // ---------- Files ----------
+  function stripExt(name) { return name.replace(/\.html?$/i, ''); }
+
+  function cleanName(name) {
+    name = (name || '').trim().replace(/[\\/:*?"<>|]/g, '-');
     if (!name) name = 'my-site';
     if (!/\.html?$/i.test(name)) name += '.html';
+    return name;
+  }
 
+  function download(name, code) {
     var blob = new Blob([code], { type: 'text/html;charset=utf-8' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
@@ -114,9 +303,162 @@
     a.click();
     a.remove();
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function requireCode() {
+    if (codeBox.value.trim()) return true;
+    toast('The text box is empty.');
+    return false;
+  }
+
+  // ---------- Library ----------
+  function getLibrary() {
+    var lib = load(LIB_KEY, []);
+    return Array.isArray(lib) ? lib : [];
+  }
+
+  function addToLibrary(name, code) {
+    var lib = getLibrary();
+    var key = name.toLowerCase();
+    var now = Date.now();
+    var found = false;
+    lib.forEach(function (item) {
+      if (item.name.toLowerCase() === key) { item.code = code; item.updated = now; found = true; }
+    });
+    if (!found) {
+      lib.push({ id: now + '-' + Math.random().toString(36).slice(2, 6), name: name, code: code, updated: now });
+    }
+    return store(LIB_KEY, lib);
+  }
+
+  function libButton(label, onClick) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn lib-btn';
+    b.textContent = label;
+    b.addEventListener('click', onClick);
+    return b;
+  }
+
+  var libDialog = $('lib-dialog');
+  function renderLibrary() {
+    var list = $('lib-list');
+    var lib = getLibrary().sort(function (a, b) { return b.updated - a.updated; });
+    list.textContent = '';
+    $('lib-empty').hidden = lib.length > 0;
+    lib.forEach(function (item) {
+      var li = document.createElement('li');
+      var info = document.createElement('div');
+      info.className = 'lib-info';
+      var title = document.createElement('strong');
+      title.textContent = item.name;
+      var when = document.createElement('small');
+      when.textContent = new Date(item.updated).toLocaleString();
+      info.appendChild(title);
+      info.appendChild(when);
+      li.appendChild(info);
+      li.appendChild(libButton('Open', function () {
+        libDialog.close();
+        setCode(item.code, stripExt(item.name), 'Opened "' + item.name + '".');
+      }));
+      li.appendChild(libButton('Delete', function () {
+        if (!confirm('Delete "' + item.name + '" from the library?')) return;
+        store(LIB_KEY, getLibrary().filter(function (x) { return x.id !== item.id; }));
+        renderLibrary();
+      }));
+      list.appendChild(li);
+    });
+  }
+  $('library').addEventListener('click', function () { renderLibrary(); libDialog.showModal(); });
+  $('lib-close').addEventListener('click', function () { libDialog.close(); });
+  libDialog.addEventListener('click', function (e) { if (e.target === libDialog) libDialog.close(); });
+
+  // ---------- Save file (also kept in the library) ----------
+  $('save').addEventListener('click', function () {
+    if (!requireCode()) return;
+    var asked = prompt('What should the file be called?', currentName);
+    if (asked === null) return;
+    var name = cleanName(asked);
+    currentName = stripExt(name);
+    download(name, codeBox.value);
+    var kept = addToLibrary(name, codeBox.value);
+    saveDraft();
+    toast(kept ? 'Saved "' + name + '" and added it to your library.'
+               : 'Saved "' + name + '". (Library storage is unavailable.)');
+  });
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      $('save').click();
+    }
   });
 
-  // ---- Receive HTML shared from another app ----
+  // ---------- Open now (in a new tab, without downloading) ----------
+  $('open-now').addEventListener('click', function () {
+    if (!requireCode()) return;
+    var url = URL.createObjectURL(new Blob([codeBox.value], { type: 'text/html;charset=utf-8' }));
+    var w = window.open(url, '_blank');
+    if (!w) toast('Your browser blocked the new tab. Allow pop-ups for this site.');
+    setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+  });
+
+  // ---------- Share the file (WhatsApp, etc.) ----------
+  var shareBtn = $('share');
+  if (!navigator.share) shareBtn.hidden = true;
+  shareBtn.addEventListener('click', function () {
+    if (!requireCode()) return;
+    var name = cleanName(currentName);
+    var file = new File([codeBox.value], name, { type: 'text/html' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: name }).catch(function (e) {
+        if (e && e.name !== 'AbortError') toast('Sharing failed.');
+      });
+    } else {
+      download(name, codeBox.value);
+      toast('This device cannot share files, so "' + name + '" was downloaded instead.');
+    }
+  });
+
+  // ---------- Paste, Clear, Open file ----------
+  function pasteFallback() {
+    showView('code');
+    codeBox.focus();
+    toast('Long-press in the box and choose Paste.');
+  }
+  $('paste').addEventListener('click', function () {
+    if (!navigator.clipboard || !navigator.clipboard.readText) { pasteFallback(); return; }
+    navigator.clipboard.readText().then(function (text) {
+      if (!text.trim()) { toast('The clipboard is empty.'); return; }
+      setCode(text, null, 'Pasted from the clipboard.');
+    }).catch(pasteFallback);
+  });
+
+  $('clear').addEventListener('click', function () {
+    if (!codeBox.value) return;
+    setCode('', null, 'Cleared.');
+  });
+
+  function loadFile(file) {
+    return file.text().then(function (text) {
+      setCode(text, stripExt(file.name), 'Opened "' + file.name + '".');
+    }).catch(function () { toast('Could not read that file.'); });
+  }
+  var fileInput = $('file');
+  $('open-file').addEventListener('click', function () { fileInput.click(); });
+  fileInput.addEventListener('change', function () {
+    var file = fileInput.files[0];
+    fileInput.value = '';
+    if (file) loadFile(file);
+  });
+
+  // Desktop installed app: double-click an .html file to open it here.
+  if ('launchQueue' in window && window.launchQueue.setConsumer) {
+    window.launchQueue.setConsumer(function (params) {
+      if (params.files && params.files.length) params.files[0].getFile().then(loadFile);
+    });
+  }
+
+  // ---------- Receive HTML shared from another app ----------
   // The service worker stores the shared content and redirects here with ?share=1.
   if (/[?&]share=1/.test(location.search) && 'caches' in window) {
     caches.open('open-html-share').then(function (cache) {
@@ -124,13 +466,9 @@
         if (!res) return;
         return res.json().then(function (data) {
           if (data.text) {
-            codeBox.value = data.text;
-            var note = document.getElementById('shared-note');
-            note.textContent = data.name
-              ? 'Loaded "' + data.name + '". Review it, then tap Save file.'
-              : 'Loaded the shared content. Review it, then tap Save file.';
-            note.style.display = 'block';
-            if (data.name) defaultName = data.name.replace(/\.html?$/i, '') || defaultName;
+            setCode(data.text, data.name ? stripExt(data.name) : null,
+              data.name ? 'Loaded "' + data.name + '". Review it, then tap Save file.'
+                        : 'Loaded the shared content. Review it, then tap Save file.');
           }
           return cache.delete('shared');
         });
@@ -139,16 +477,14 @@
     history.replaceState(null, '', location.pathname);
   }
 
-  // ---- Install as an app ----
-  var installBtn = document.getElementById('install');
+  // ---------- Install as an app ----------
+  var installBtn = $('install');
   var deferredPrompt = null;
-
   window.addEventListener('beforeinstallprompt', function (e) {
     e.preventDefault();
     deferredPrompt = e;
     installBtn.style.display = 'inline-block';
   });
-
   installBtn.addEventListener('click', function () {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
@@ -157,26 +493,22 @@
       installBtn.style.display = 'none';
     });
   });
-
-  window.addEventListener('appinstalled', function () {
-    installBtn.style.display = 'none';
-  });
+  window.addEventListener('appinstalled', function () { installBtn.style.display = 'none'; });
 
   // iPhone/iPad Safari has no install prompt, so show a short hint instead.
   var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   var isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
     window.navigator.standalone === true;
-  if (isIOS && !isStandalone) {
-    document.getElementById('ios-hint').style.display = 'block';
-  }
+  if (isIOS && !isStandalone) $('ios-hint').hidden = false;
 
-  // ---- Offline support + share target ----
+  // ---------- Offline support + share target ----------
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
       navigator.serviceWorker.register('sw.js').catch(function () {});
     });
   }
+})();
 </script>
 </body>
 </html>

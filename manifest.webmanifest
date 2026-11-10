@@ -1,7 +1,7 @@
 {
   "name": "Open HTML",
   "short_name": "Open HTML",
-  "description": "Paste HTML code, save it as a file, and open it as a site. Share HTML files to it from other apps.",
+  "description": "Paste HTML code, preview it, save it as a file, and open it as a site. Share or open HTML files with it from other apps.",
   "lang": "en",
   "dir": "ltr",
   "start_url": "./",
@@ -33,5 +33,11 @@
         }
       ]
     }
-  }
+  },
+  "file_handlers": [
+    {
+      "action": "./",
+      "accept": { "text/html": [".html", ".htm"] }
+    }
+  ]
 }

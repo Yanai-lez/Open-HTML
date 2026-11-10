@@ -1,5 +1,5 @@
 // Service worker: offline support + receiving shared HTML from other apps.
-var CACHE = 'open-html-v2';
+var CACHE = 'open-html-v3';
 var SHARE_CACHE = 'open-html-share';
 var FILES = [
   './',
