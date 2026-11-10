@@ -75,22 +75,47 @@
   .toolbar { display: flex; gap: 8px; }
   .toolbar .btn { flex: 1; padding: 9px 6px; font-size: .9rem; }
 
+  .viewbar { display: flex; gap: 8px; }
+  .viewbar .btn { padding: 0 16px; }
   .tabs {
-    display: flex; gap: 3px; padding: 3px;
+    flex: 1; display: flex; gap: 3px; padding: 3px;
     background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
   }
   .tab { flex: 1; padding: 8px; background: transparent; color: var(--muted); font-weight: 600; border-radius: 8px; }
   .tab[aria-selected="true"] { background: var(--blue); color: #fff; }
 
-  .stage { flex: 1; min-height: 0; position: relative; }
-  .stage textarea, .stage iframe {
+  .findbar { display: flex; align-items: center; gap: 6px; }
+  .findbar select, .findbar input {
+    height: 38px; font: inherit; font-size: 16px; /* 16px stops iOS zooming in on focus */
+    background: var(--panel); color: var(--text);
+    border: 1px solid var(--line); border-radius: 10px;
+  }
+  .findbar select { padding: 0 4px; }
+  .findbar input { flex: 1; min-width: 0; padding: 0 10px; }
+  .findbar.nomatch input { border-color: #f87171; }
+  #find-count { font-size: .8rem; color: var(--muted); white-space: nowrap; text-align: center; min-width: 2.2ch; }
+  .findbar .icon { width: 36px; height: 38px; padding: 0; font-size: 1.1rem; }
+
+  /* The editor is a textarea on top of a "mirror" that has identical text layout.
+     The mirror is transparent except for the highlighted match, which shows through. */
+  .stage { flex: 1; min-height: 0; position: relative; background: var(--panel); border-radius: 10px; }
+  .stage textarea, .stage iframe, .stage .mirror {
     position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 10px;
   }
-  textarea {
-    padding: 12px; resize: none; tab-size: 2;
-    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+  textarea, .mirror {
+    padding: 12px; tab-size: 2;
     font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 14px; line-height: 1.45;
+    white-space: pre-wrap; overflow-wrap: break-word;
+    scrollbar-gutter: stable; /* same text width in both, with or without a scrollbar */
   }
+  textarea { resize: none; background: transparent; color: var(--text); border: 1px solid var(--line); }
+  .mirror { margin: 0; border: 1px solid transparent; overflow: hidden; color: transparent; pointer-events: none; }
+  .mirror mark {
+    color: transparent; border-radius: 3px;
+    background: rgba(250, 204, 21, .45); box-shadow: 0 0 0 2px rgba(250, 204, 21, .55);
+    transition: background-color .8s, box-shadow .8s;
+  }
+  .mirror.fade mark { background-color: rgba(250, 204, 21, 0); box-shadow: 0 0 0 2px rgba(250, 204, 21, 0); }
   iframe { border: 1px solid var(--line); background: #fff; }
   .stage[data-view="preview"] textarea { display: none; }
 
@@ -150,12 +175,29 @@
     <button id="library" class="btn" type="button">Library</button>
   </div>
 
-  <div class="tabs" role="tablist">
-    <button id="tab-code" class="tab" type="button" role="tab" aria-selected="true">Code</button>
-    <button id="tab-preview" class="tab" type="button" role="tab" aria-selected="false">Preview</button>
+  <div class="viewbar">
+    <div class="tabs" role="tablist">
+      <button id="tab-code" class="tab" type="button" role="tab" aria-selected="true">Code</button>
+      <button id="tab-preview" class="tab" type="button" role="tab" aria-selected="false">Preview</button>
+    </div>
+    <button id="find-btn" class="btn" type="button" aria-expanded="false" aria-controls="find-bar">Find</button>
+  </div>
+
+  <div id="find-bar" class="findbar" role="search" hidden>
+    <select id="find-mode" aria-label="Search type">
+      <option value="text">Text</option>
+      <option value="line">Line</option>
+    </select>
+    <input id="find-input" type="search" placeholder="Find in code" enterkeyhint="search"
+      autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Search">
+    <span id="find-count" aria-live="polite"></span>
+    <button id="find-prev" class="btn icon" type="button" aria-label="Previous">&#8593;</button>
+    <button id="find-next" class="btn icon" type="button" aria-label="Next">&#8595;</button>
+    <button id="find-close" class="btn icon" type="button" aria-label="Close search">&#10005;</button>
   </div>
 
   <div id="stage" class="stage" data-view="code">
+    <div id="mirror" class="mirror" aria-hidden="true" hidden></div>
     <textarea id="code" placeholder="Paste your HTML code here..."
       spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
   </div>
@@ -247,12 +289,14 @@
     var previousName = currentName;
     codeBox.value = text;
     if (name) currentName = name;
+    clearHighlight();
     saveDraft();
     showView('code');
     if (previous.trim() && previous !== text) {
       toast(message, 'Undo', function () {
         codeBox.value = previous;
         currentName = previousName;
+        clearHighlight();
         saveDraft();
       });
     } else {
@@ -265,6 +309,7 @@
     stage.dataset.view = view;
     $('tab-code').setAttribute('aria-selected', String(view === 'code'));
     $('tab-preview').setAttribute('aria-selected', String(view === 'preview'));
+    if (view !== 'code') clearHighlight();
 
     // A fresh frame every time: it stops any scripts from the previous preview,
     // and avoids a Chrome quirk where a reused frame can render at zero size.
@@ -501,6 +546,176 @@
   var isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
     window.navigator.standalone === true;
   if (isIOS && !isStandalone) $('ios-hint').hidden = false;
+
+  // ---------- Find: a text (letters, words) or a line number ----------
+  // Jumps to the match and highlights it for a few seconds. The highlight is drawn
+  // in the "mirror" behind the textarea, which lays out the same text identically.
+  var findBar = $('find-bar');
+  var findBtn = $('find-btn');
+  var findInput = $('find-input');
+  var findMode = $('find-mode');
+  var findCount = $('find-count');
+  var mirror = $('mirror');
+  var HIGHLIGHT_MS = 3000;   // total time; the last 0.8s is a fade (see CSS)
+  var MAX_MATCHES = 10000;
+  var hlFadeTimer, hlHideTimer;
+  var lastPos = 0;           // where the current match starts
+
+  function clearHighlight() {
+    clearTimeout(hlFadeTimer);
+    clearTimeout(hlHideTimer);
+    mirror.hidden = true;
+    mirror.textContent = '';
+    mirror.classList.remove('fade');
+  }
+
+  // Keep the mirror exactly as wide as the textarea's text area, even if only one of
+  // them reserves space for a scrollbar (older Safari ignores scrollbar-gutter).
+  function syncMirrorWidth() {
+    var bars = function (el) { return el.offsetWidth - el.clientWidth - 2; }; // minus 1px borders
+    mirror.style.paddingRight = (12 + Math.max(0, bars(codeBox) - bars(mirror))) + 'px';
+  }
+
+  function highlight(start, end) {
+    if (stage.dataset.view !== 'code') showView('code');
+    clearHighlight();
+    var text = codeBox.value;
+    var mark = document.createElement('mark');
+    mark.textContent = text.slice(start, end) || ' '; // an empty line still gets a visible block
+    mirror.append(
+      document.createTextNode(text.slice(0, start)),
+      mark,
+      document.createTextNode(text.slice(end) + '​')  // keeps a trailing empty line the same height
+    );
+    mirror.hidden = false;
+    syncMirrorWidth();
+    mirror.scrollTop = 0;
+    // Scroll so the match sits in the upper part of the box, clear of a phone keyboard.
+    codeBox.scrollTop = Math.max(0, mark.offsetTop - codeBox.clientHeight * 0.25);
+    mirror.scrollTop = codeBox.scrollTop;
+    hlFadeTimer = setTimeout(function () { mirror.classList.add('fade'); }, HIGHLIGHT_MS - 800);
+    hlHideTimer = setTimeout(clearHighlight, HIGHLIGHT_MS);
+  }
+
+  codeBox.addEventListener('scroll', function () { if (!mirror.hidden) mirror.scrollTop = codeBox.scrollTop; });
+  codeBox.addEventListener('input', clearHighlight); // the text changed, so the highlight is stale
+
+  function setCount(message, bad) {
+    findCount.textContent = message;
+    findBar.classList.toggle('nomatch', !!bad);
+  }
+
+  function escapeRegExp(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+  function findAll(query) {
+    var re = new RegExp(escapeRegExp(query), 'gi'); // letters, case-insensitive; symbols match literally
+    var text = codeBox.value, hits = [], m;
+    while ((m = re.exec(text)) && hits.length < MAX_MATCHES) {
+      hits.push({ start: m.index, end: m.index + m[0].length });
+    }
+    return hits;
+  }
+
+  // dir: 'first' (the query just changed), 'next' or 'prev'. Both wrap around.
+  function findText(dir) {
+    var query = findInput.value;
+    if (!query) { clearHighlight(); setCount(''); return; }
+    var hits = findAll(query);
+    if (!hits.length) { clearHighlight(); setCount('0', true); return; }
+    var i = 0, k;
+    if (dir === 'prev') {
+      i = hits.length - 1;
+      for (k = hits.length - 1; k >= 0; k--) { if (hits[k].start < lastPos) { i = k; break; } }
+    } else {
+      var from = dir === 'next' ? lastPos + 1 : lastPos;
+      for (k = 0; k < hits.length; k++) { if (hits[k].start >= from) { i = k; break; } }
+    }
+    lastPos = hits[i].start;
+    setCount((i + 1) + '/' + hits.length + (hits.length >= MAX_MATCHES ? '+' : ''));
+    highlight(hits[i].start, hits[i].end);
+  }
+
+  function findLine(dir) {
+    var raw = findInput.value.trim();
+    if (!raw) { clearHighlight(); setCount(''); return; }
+    var lines = codeBox.value.split('\n');
+    var total = lines.length;
+    var n = parseInt(raw, 10);
+    if (dir === 'next') n = (n || 0) + 1;
+    if (dir === 'prev') n = (n || total + 1) - 1;
+    if (dir !== 'first') {
+      if (n > total) n = 1;
+      if (n < 1) n = total;
+      findInput.value = String(n);
+    }
+    if (!(n >= 1)) { clearHighlight(); setCount('From 1', true); return; }
+    if (n > total) { clearHighlight(); setCount('Only ' + total, true); return; }
+    var start = 0;
+    for (var i = 0; i < n - 1; i++) start += lines[i].length + 1;
+    setCount(n + '/' + total);
+    highlight(start, start + lines[n - 1].length);
+  }
+
+  function runFind(dir) { (findMode.value === 'line' ? findLine : findText)(dir); }
+
+  function applyFindMode() {
+    var line = findMode.value === 'line';
+    findInput.placeholder = line ? 'Line number' : 'Find in code';
+    findInput.setAttribute('inputmode', line ? 'numeric' : 'search');
+    findInput.setAttribute('enterkeyhint', line ? 'go' : 'search');
+  }
+
+  function openFind() {
+    findBar.hidden = false;
+    findBtn.setAttribute('aria-expanded', 'true');
+    findBtn.classList.add('primary');
+    applyFindMode();
+    lastPos = 0;
+    findInput.focus();
+    findInput.select();
+    if (findInput.value) runFind('first');
+  }
+
+  function closeFind() {
+    findBar.hidden = true;
+    findBtn.setAttribute('aria-expanded', 'false');
+    findBtn.classList.remove('primary');
+    clearHighlight();
+    setCount('');
+  }
+
+  findBtn.addEventListener('click', function () { if (findBar.hidden) openFind(); else closeFind(); });
+  $('find-close').addEventListener('click', closeFind);
+  $('find-next').addEventListener('click', function () { runFind('next'); });
+  $('find-prev').addEventListener('click', function () { runFind('prev'); });
+  // Tapping these must not take focus from the box, or the phone keyboard keeps closing.
+  ['find-next', 'find-prev', 'find-close'].forEach(function (id) {
+    $(id).addEventListener('mousedown', function (e) { e.preventDefault(); });
+  });
+
+  findInput.addEventListener('input', function () {
+    if (findMode.value === 'line') {
+      var digits = findInput.value.replace(/\D/g, '');
+      if (digits !== findInput.value) findInput.value = digits;
+    }
+    if (!findInput.value) lastPos = 0;
+    runFind('first');
+  });
+  findInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { e.preventDefault(); closeFind(); return; } // keep the query (browsers clear it on Esc)
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (findMode.value === 'line') runFind('first'); // already on that line: flash it again
+    else runFind(e.shiftKey ? 'prev' : 'next');
+  });
+  findMode.addEventListener('change', function () {
+    findInput.value = '';
+    lastPos = 0;
+    clearHighlight();
+    setCount('');
+    applyFindMode();
+    findInput.focus();
+  });
 
   // ---------- Offline support + share target ----------
   if ('serviceWorker' in navigator) {
