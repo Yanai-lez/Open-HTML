@@ -2,19 +2,56 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="הדבק קוד HTML, שמור כקובץ ופתח אותו כאתר.">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Open HTML</title>
+<meta name="description" content="הדבק קוד HTML, שמור אותו כקובץ ופתח אותו כאתר. אפשר להתקין כאפליקציה.">
+<link rel="canonical" href="https://yanai-lez.github.io/Open-HTML/">
+
+<!-- App / install -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f1115">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Open HTML">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<!-- Icons (browser tab, Google results, home screen) -->
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="icon" type="image/png" sizes="48x48" href="icons/icon-48.png">
+<link rel="icon" type="image/png" sizes="96x96" href="icons/icon-96.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+<!-- Link previews (WhatsApp, Telegram, Facebook, etc.) -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Open HTML">
+<meta property="og:locale" content="he_IL">
+<meta property="og:title" content="Open HTML">
+<meta property="og:description" content="הדבק קוד HTML, שמור כקובץ ופתח אותו כאתר.">
+<meta property="og:url" content="https://yanai-lez.github.io/Open-HTML/">
+<meta property="og:image" content="https://yanai-lez.github.io/Open-HTML/icons/og-image.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Open HTML">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Open HTML">
+<meta name="twitter:description" content="הדבק קוד HTML, שמור כקובץ ופתח אותו כאתר.">
+<meta name="twitter:image" content="https://yanai-lez.github.io/Open-HTML/icons/og-image.jpg">
+
 <style>
   * { box-sizing: border-box; }
   body {
-    margin: 0; padding: 16px;
+    margin: 0;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
     font-family: system-ui, sans-serif;
     background: #0f1115; color: #eee;
     display: flex; flex-direction: column;
     height: 100vh; height: 100dvh; gap: 12px;
   }
-  h1 { margin: 0; font-size: 1.3rem; }
+  header { display: flex; align-items: center; gap: 12px; }
+  header img { width: 40px; height: 40px; border-radius: 10px; }
+  h1 { margin: 0; font-size: 1.3rem; flex: 1; }
   textarea {
     flex: 1; width: 100%; padding: 12px;
     background: #1a1d24; color: #eee;
@@ -28,14 +65,28 @@
     background: #3b82f6; color: #fff; cursor: pointer;
   }
   button:active { background: #2563eb; }
+  #install {
+    display: none; padding: 8px 14px; font-size: .95rem;
+    background: transparent; border: 1px solid #3b82f6; color: #8ab4ff;
+  }
+  #ios-hint {
+    display: none; margin: 0; padding: 10px 12px; font-size: .9rem;
+    background: #1a1d24; border: 1px solid #333; border-radius: 10px; color: #9db4d6;
+  }
 </style>
 </head>
 <body>
-  <h1>Open HTML</h1>
+  <header>
+    <img src="icons/icon-96.png" alt="" width="40" height="40">
+    <h1>Open HTML</h1>
+    <button id="install" type="button">התקן אפליקציה</button>
+  </header>
+  <p id="ios-hint">להתקנה באייפון: לחץ על כפתור השיתוף ואז "הוסף למסך הבית".</p>
   <textarea id="code" placeholder="הדבק כאן את קוד ה-HTML..." spellcheck="false"></textarea>
-  <button id="save">שמור קובץ</button>
+  <button id="save" type="button">שמור קובץ</button>
 
 <script>
+  // ---- Save as a file ----
   document.getElementById('save').addEventListener('click', function () {
     var code = document.getElementById('code').value;
     if (!code.trim()) {
@@ -60,6 +111,45 @@
     a.remove();
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   });
+
+  // ---- Install as an app ----
+  var installBtn = document.getElementById('install');
+  var deferredPrompt = null;
+
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    deferredPrompt = e;
+    installBtn.style.display = 'inline-block';
+  });
+
+  installBtn.addEventListener('click', function () {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(function () {
+      deferredPrompt = null;
+      installBtn.style.display = 'none';
+    });
+  });
+
+  window.addEventListener('appinstalled', function () {
+    installBtn.style.display = 'none';
+  });
+
+  // iPhone/iPad Safari has no install prompt, so show a short hint instead.
+  var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true;
+  if (isIOS && !isStandalone) {
+    document.getElementById('ios-hint').style.display = 'block';
+  }
+
+  // ---- Offline support ----
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function () {});
+    });
+  }
 </script>
 </body>
 </html>

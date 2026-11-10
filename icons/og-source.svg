@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="page" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f1115"/>
+      <stop offset="1" stop-color="#1b1f3a"/>
+    </linearGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4f9cff"/>
+      <stop offset="1" stop-color="#5b3df5"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#page)"/>
+  <g transform="translate(110 115) scale(0.78)">
+    <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+    <rect width="512" height="512" rx="112" fill="url(#shine)"/>
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="186,168 106,256 186,344" stroke="#ffffff" stroke-width="38"/>
+      <polyline points="326,168 406,256 326,344" stroke="#ffffff" stroke-width="38"/>
+      <line x1="284" y1="148" x2="228" y2="364" stroke="#8ff0ff" stroke-width="34"/>
+    </g>
+  </g>
+  <text x="550" y="300" font-family="DejaVu Sans, sans-serif" font-weight="700" font-size="88" fill="#ffffff">Open HTML</text>
+  <text x="554" y="372" font-family="DejaVu Sans, sans-serif" font-size="40" fill="#9db4d6">Paste · Save · Open</text>
+</svg>
