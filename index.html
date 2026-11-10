@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="הדבק קוד HTML, שמור כקובץ ופתח אותו כאתר.">
+<title>Open HTML</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px;
+    font-family: system-ui, sans-serif;
+    background: #0f1115; color: #eee;
+    display: flex; flex-direction: column;
+    height: 100vh; height: 100dvh; gap: 12px;
+  }
+  h1 { margin: 0; font-size: 1.3rem; }
+  textarea {
+    flex: 1; width: 100%; padding: 12px;
+    background: #1a1d24; color: #eee;
+    border: 1px solid #333; border-radius: 10px;
+    font-family: monospace; font-size: 14px;
+    direction: ltr; text-align: left; resize: none;
+  }
+  button {
+    padding: 14px; font-size: 1.1rem; font-weight: 600;
+    border: 0; border-radius: 10px;
+    background: #3b82f6; color: #fff; cursor: pointer;
+  }
+  button:active { background: #2563eb; }
+</style>
+</head>
+<body>
+  <h1>Open HTML</h1>
+  <textarea id="code" placeholder="הדבק כאן את קוד ה-HTML..." spellcheck="false"></textarea>
+  <button id="save">שמור קובץ</button>
+
+<script>
+  document.getElementById('save').addEventListener('click', function () {
+    var code = document.getElementById('code').value;
+    if (!code.trim()) {
+      alert('תיבת הטקסט ריקה');
+      return;
+    }
+
+    var name = prompt('איך לקרוא לקובץ?', 'my-site');
+    if (name === null) return;
+
+    name = name.trim().replace(/[\\/:*?"<>|]/g, '-');
+    if (!name) name = 'my-site';
+    if (!/\.html?$/i.test(name)) name += '.html';
+
+    var blob = new Blob([code], { type: 'text/html;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  });
+</script>
+</body>
+</html>
