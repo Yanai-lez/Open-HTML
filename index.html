@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="he" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Open HTML</title>
-<meta name="description" content="הדבק קוד HTML, שמור אותו כקובץ ופתח אותו כאתר. אפשר להתקין כאפליקציה.">
+<meta name="description" content="Paste HTML code, save it as a file, and open it as a site. Installable as an app.">
 <link rel="canonical" href="https://yanai-lez.github.io/Open-HTML/">
 
 <!-- App / install -->
@@ -25,9 +25,9 @@
 <!-- Link previews (WhatsApp, Telegram, Facebook, etc.) -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Open HTML">
-<meta property="og:locale" content="he_IL">
+<meta property="og:locale" content="en_US">
 <meta property="og:title" content="Open HTML">
-<meta property="og:description" content="הדבק קוד HTML, שמור כקובץ ופתח אותו כאתר.">
+<meta property="og:description" content="Paste HTML code, save it as a file, and open it as a site.">
 <meta property="og:url" content="https://yanai-lez.github.io/Open-HTML/">
 <meta property="og:image" content="https://yanai-lez.github.io/Open-HTML/icons/og-image.jpg">
 <meta property="og:image:type" content="image/jpeg">
@@ -36,7 +36,7 @@
 <meta property="og:image:alt" content="Open HTML">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Open HTML">
-<meta name="twitter:description" content="הדבק קוד HTML, שמור כקובץ ופתח אותו כאתר.">
+<meta name="twitter:description" content="Paste HTML code, save it as a file, and open it as a site.">
 <meta name="twitter:image" content="https://yanai-lez.github.io/Open-HTML/icons/og-image.jpg">
 
 <style>
@@ -57,7 +57,7 @@
     background: #1a1d24; color: #eee;
     border: 1px solid #333; border-radius: 10px;
     font-family: monospace; font-size: 14px;
-    direction: ltr; text-align: left; resize: none;
+    resize: none;
   }
   button {
     padding: 14px; font-size: 1.1rem; font-weight: 600;
@@ -69,7 +69,7 @@
     display: none; padding: 8px 14px; font-size: .95rem;
     background: transparent; border: 1px solid #3b82f6; color: #8ab4ff;
   }
-  #ios-hint {
+  .note {
     display: none; margin: 0; padding: 10px 12px; font-size: .9rem;
     background: #1a1d24; border: 1px solid #333; border-radius: 10px; color: #9db4d6;
   }
@@ -79,22 +79,26 @@
   <header>
     <img src="icons/icon-96.png" alt="" width="40" height="40">
     <h1>Open HTML</h1>
-    <button id="install" type="button">התקן אפליקציה</button>
+    <button id="install" type="button">Install app</button>
   </header>
-  <p id="ios-hint">להתקנה באייפון: לחץ על כפתור השיתוף ואז "הוסף למסך הבית".</p>
-  <textarea id="code" placeholder="הדבק כאן את קוד ה-HTML..." spellcheck="false"></textarea>
-  <button id="save" type="button">שמור קובץ</button>
+  <p id="ios-hint" class="note">To install on iPhone: tap the Share button, then "Add to Home Screen".</p>
+  <p id="shared-note" class="note"></p>
+  <textarea id="code" placeholder="Paste your HTML code here..." spellcheck="false"></textarea>
+  <button id="save" type="button">Save file</button>
 
 <script>
+  var codeBox = document.getElementById('code');
+  var defaultName = 'my-site';
+
   // ---- Save as a file ----
   document.getElementById('save').addEventListener('click', function () {
-    var code = document.getElementById('code').value;
+    var code = codeBox.value;
     if (!code.trim()) {
-      alert('תיבת הטקסט ריקה');
+      alert('The text box is empty.');
       return;
     }
 
-    var name = prompt('איך לקרוא לקובץ?', 'my-site');
+    var name = prompt('What should the file be called?', defaultName);
     if (name === null) return;
 
     name = name.trim().replace(/[\\/:*?"<>|]/g, '-');
@@ -111,6 +115,29 @@
     a.remove();
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   });
+
+  // ---- Receive HTML shared from another app ----
+  // The service worker stores the shared content and redirects here with ?share=1.
+  if (/[?&]share=1/.test(location.search) && 'caches' in window) {
+    caches.open('open-html-share').then(function (cache) {
+      return cache.match('shared').then(function (res) {
+        if (!res) return;
+        return res.json().then(function (data) {
+          if (data.text) {
+            codeBox.value = data.text;
+            var note = document.getElementById('shared-note');
+            note.textContent = data.name
+              ? 'Loaded "' + data.name + '". Review it, then tap Save file.'
+              : 'Loaded the shared content. Review it, then tap Save file.';
+            note.style.display = 'block';
+            if (data.name) defaultName = data.name.replace(/\.html?$/i, '') || defaultName;
+          }
+          return cache.delete('shared');
+        });
+      });
+    }).catch(function () {});
+    history.replaceState(null, '', location.pathname);
+  }
 
   // ---- Install as an app ----
   var installBtn = document.getElementById('install');
@@ -144,7 +171,7 @@
     document.getElementById('ios-hint').style.display = 'block';
   }
 
-  // ---- Offline support ----
+  // ---- Offline support + share target ----
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
       navigator.serviceWorker.register('sw.js').catch(function () {});
