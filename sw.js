@@ -1,5 +1,5 @@
 // Service worker: offline support + receiving shared HTML from other apps.
-var CACHE = 'open-html-v4';
+var CACHE = 'open-html-v5';
 var SHARE_CACHE = 'open-html-share';
 var FILES = [
   './',
@@ -10,7 +10,8 @@ var FILES = [
   './icons/icon.svg',
   './icons/icon-192.png',
   './icons/icon-512.png',
-  './icons/icon-maskable-512.png'
+  './icons/icon-maskable-512.png',
+  './vendor/prism-bundle.js'
 ];
 
 self.addEventListener('install', function (event) {
